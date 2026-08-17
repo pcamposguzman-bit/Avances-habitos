@@ -109,7 +109,7 @@ input.nombre{flex:1;background:transparent;border:0;border-bottom:1px solid var(
     <p class="subt">Planificación mensual</p>
     <h1 class="titulo">Avances</h1>
   </div>
-  <div class="pctcab"><b id="pctCab">0%</b>del mes</div>
+  <div class="pctcab"><b id="pctCab">0%</b><span id="estado">del mes</span></div>
 </header>
 <div class="pleca"></div>
 <div class="nav">
@@ -144,6 +144,7 @@ input.nombre{flex:1;background:transparent;border:0;border-bottom:1px solid var(
   </div>
   <input type="file" id="archivo" accept="application/json,.json" style="display:none">
   <p class="nota" id="notaAlmacen" style="display:none">Este modo no permite guardar de forma permanente: usa <b>Respaldo JSON</b> antes de cerrar y <b>Cargar respaldo</b> al volver.</p>
+  <p class="nota" id="diag"></p>
   <p class="nota">Todo se guarda en este iPhone. Si borras los datos de Safari, se pierde el historial: exporta de vez en cuando.</p>
 </div>
 
@@ -177,7 +178,20 @@ function celda(r0,r1,a0,a1){var p0=polar(r1,a0),p1=polar(r1,a1),p2=polar(r0,a1),
 var CFG="avances:v1:config";
 function mesKey(k){return "avances:v1:mes:"+k;}
 function leer(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
-function escribir(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function escribir(k,v){
+  try{
+    var txt=JSON.stringify(v);
+    localStorage.setItem(k,txt);
+    return localStorage.getItem(k)===txt;   /* confirma releyendo */
+  }catch(e){ return false; }
+}
+function avisarGuardado(ok){
+  var e=document.getElementById("estado"); if(!e) return;
+  if(ok){ var h=new Date();
+    e.textContent="guardado "+h.getHours()+":"+String(h.getMinutes()).padStart(2,"0");
+    e.style.color="#6B7A90";
+  } else { e.textContent="NO se guardó"; e.style.color="#9B3742"; }
+}
 function uid(){return Math.random().toString(36).slice(2,8);}
 function claveMes(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
 function nDiasDe(a,m){return new Date(a,m+1,0).getDate();}
@@ -197,7 +211,7 @@ if(!habitos.length) habitos=BASE.map(function(h){return {id:uid(),nombre:h.nombr
 var datos={marcas:{},obs:""};
 function cargarMes(){var d=leer(mesKey(claveMes(cursor)));
   datos={marcas:(d&&d.marcas)?d.marcas:{}, obs:(d&&typeof d.obs==="string")?d.obs:""};}
-function guardarMes(){escribir(mesKey(claveMes(cursor)),datos);}
+function guardarMes(){var ok=escribir(mesKey(claveMes(cursor)),datos);avisarGuardado(ok);diagnostico();return ok;}
 function guardarCfg(){escribir(CFG,{habitos:habitos});}
 
 function esMesActual(){return cursor.getFullYear()===hoy.getFullYear()&&cursor.getMonth()===hoy.getMonth();}
@@ -380,16 +394,24 @@ document.getElementById("archivo").addEventListener("change",function(e){
   e.target.value="";
 });
 
-/* ¿este navegador permite guardar? */
-(function(){
-  var ok=false;
-  try{ localStorage.setItem("avances:test","1"); ok=localStorage.getItem("avances:test")==="1"; localStorage.removeItem("avances:test"); }catch(e){ ok=false; }
-  if(!ok) document.getElementById("notaAlmacen").style.display="block";
-})();
+function diagnostico(){
+  var d=document.getElementById("diag"); if(!d) return;
+  var vive=false, err="";
+  try{ localStorage.setItem("avances:test","1"); vive=localStorage.getItem("avances:test")==="1"; localStorage.removeItem("avances:test"); }
+  catch(e){ vive=false; err=e&&e.name?e.name:"error"; }
+  var llaves=0; try{ for(var i=0;i<localStorage.length;i++){ if(localStorage.key(i).indexOf("avances:")===0) llaves++; } }catch(e){}
+  var marcas=Object.keys(datos.marcas).length;
+  var modo=(window.navigator.standalone===true)?"desde el ícono":"en Safari";
+  d.innerHTML= vive
+    ? "Almacenamiento activo ("+modo+") · "+llaves+" registros guardados · "+marcas+" marcas este mes. Cierra y vuelve a abrir: si el número de marcas se mantiene, está guardando bien."
+    : "<b>El navegador está bloqueando el guardado"+(err?" ("+err+")":"")+".</b> Revisa Ajustes → Apps → Safari → Bloquear todas las cookies (debe estar apagado) y no uses navegación privada.";
+  document.getElementById("notaAlmacen").style.display = vive ? "none" : "block";
+}
 
 cargarMes();
 document.getElementById("obs").value=datos.obs;
 render();
+diagnostico();
 })();
 </script>
 </body>
