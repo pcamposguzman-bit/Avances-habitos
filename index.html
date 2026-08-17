@@ -164,9 +164,10 @@ function tono(i,n){var corte=Math.ceil(n/2);
 
 var MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 var DIAS=["dom","lun","mar","mié","jue","vie","sáb"];
-var BASE=[{nombre:"Levantarme temprano 6:00"},{nombre:"Ejercicios matutinos"},{nombre:"Limpiar casa"},
- {nombre:"Preparar comida"},{nombre:"Leer 10 páginas"},{nombre:"Estudiar examen de informática",soloMes:7},
- {nombre:"Gym"},{nombre:"Dejar el teléfono 22:00"},{nombre:"Dormir 23:00"}];
+var BASE=[{id:"h1",nombre:"Levantarme temprano 6:00"},{id:"h2",nombre:"Ejercicios matutinos"},
+ {id:"h3",nombre:"Limpiar casa"},{id:"h4",nombre:"Preparar comida"},{id:"h5",nombre:"Leer 10 páginas"},
+ {id:"h6",nombre:"Estudiar examen de informática",soloMes:7},{id:"h7",nombre:"Gym"},
+ {id:"h8",nombre:"Dejar el teléfono 22:00"},{id:"h9",nombre:"Dormir 23:00"}];
 
 var CX=180,CY=180,R_INT=44,R_EXT=158;
 function polar(r,a){var x=(a-90)*Math.PI/180;return [CX+r*Math.cos(x),CY+r*Math.sin(x)];}
@@ -202,15 +203,26 @@ var cursor=new Date(hoy.getFullYear(),hoy.getMonth(),1);
 var diaSel=hoy.getDate();
 var editando=false;
 
+function copiaBase(){return BASE.map(function(h){
+  var o={id:h.id,nombre:h.nombre}; if(h.soloMes!=null) o.soloMes=h.soloMes; return o;});}
+
 var cfg=leer(CFG);
 var habitos=(cfg&&cfg.habitos&&cfg.habitos.length)
   ? cfg.habitos.filter(function(h){return h&&h.id&&typeof h.nombre==="string";})
-  : BASE.map(function(h){var o={id:uid(),nombre:h.nombre};if(h.soloMes!=null)o.soloMes=h.soloMes;return o;});
-if(!habitos.length) habitos=BASE.map(function(h){return {id:uid(),nombre:h.nombre};});
+  : copiaBase();
+if(!habitos.length) habitos=copiaBase();
+/* clave del arreglo: fijar la lista desde el primer arranque, para que los
+   identificadores no cambien al reabrir y las marcas no queden huérfanas */
+if(!cfg||!cfg.habitos||!cfg.habitos.length) escribir(CFG,{habitos:habitos});
 
 var datos={marcas:{},obs:""};
 function cargarMes(){var d=leer(mesKey(claveMes(cursor)));
-  datos={marcas:(d&&d.marcas)?d.marcas:{}, obs:(d&&typeof d.obs==="string")?d.obs:""};}
+  var m=(d&&d.marcas)?d.marcas:{}, limpio={}, sobras=0;
+  var vivos={}; habitos.forEach(function(h){vivos[h.id]=1;});
+  Object.keys(m).forEach(function(k){
+    if(vivos[k.split(":")[0]]) limpio[k]=m[k]; else sobras++;});
+  datos={marcas:limpio, obs:(d&&typeof d.obs==="string")?d.obs:""};
+  if(sobras) escribir(mesKey(claveMes(cursor)),datos);}
 function guardarMes(){var ok=escribir(mesKey(claveMes(cursor)),datos);avisarGuardado(ok);diagnostico();return ok;}
 function guardarCfg(){escribir(CFG,{habitos:habitos});}
 
